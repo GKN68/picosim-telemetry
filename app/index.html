@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PicoSim Telemetry</title>
+<style>
+:root{
+  --bg:#101112; --side:#0b0c0d; --tile:#1a1b1d; --tile2:#222326; --hover:#24262a; --line:#2a2c30;
+  --tx:#ffffff; --tx2:#b8bcc2; --dim:#7b8088; --red:#ffd21f; --red2:#ffe055; --ok:#3ddc84; --warn:#ff8a1f; --num:"Bahnschrift","Segoe UI",sans-serif;
+  --f:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.4 var(--f);overflow:hidden}
+button,select,input{font:inherit;color:var(--tx)}
+canvas{display:block;width:100%;height:100%}
+.app{display:grid;grid-template-columns:92px 1fr;height:100vh}
+#side{background:var(--side);display:flex;flex-direction:column;border-right:1px solid #1f1f1f;min-height:0}
+.logo{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0 12px;font:600 12px var(--num);letter-spacing:.04em;color:var(--tx2)}
+.logo svg{width:56px;height:56px}
+.logo svg.wm{width:68px;height:auto;display:block}
+.nav{flex:1;overflow:auto;padding:4px 0}
+.nav .grp{height:1px;background:#202226;margin:10px 18px;font-size:0;overflow:hidden}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%;background:none;border:0;padding:10px 4px;color:var(--dim);cursor:pointer;text-align:center;position:relative;font-size:11px;line-height:1.2}
+.nav button svg{width:22px;height:22px;flex:0 0 22px;fill:none;stroke:currentColor;stroke-width:1.6}
+.nav button:hover{background:var(--hover);color:var(--tx)}
+.nav button.on{color:var(--tx)}
+.nav button.on svg{color:var(--red)}
+.nav button.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;background:var(--red)}
+.nav button .n{display:none}
+.sess{display:flex;align-items:center;gap:8px;margin:0 24px 14px}
+.sess h4{display:none}
+.slot{display:grid;grid-template-columns:8px minmax(0,240px) auto;gap:2px 10px;align-items:center;padding:8px 14px;background:var(--tile);border-radius:4px}
+.slot b{width:8px;height:8px;border-radius:50%}
+.slot .nm{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot .mt{grid-column:2/4;font-size:12px;color:var(--dim)}
+.sess .acts{display:flex;gap:4px;margin-left:4px}
+.lnk{background:none;border:0;color:var(--tx2);cursor:pointer;font-size:12px;padding:2px 4px}
+.lnk:hover{color:var(--tx)}
+#main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.hdr{display:flex;align-items:center;gap:16px;padding:16px 24px 12px}
+.hdr h1{margin:0;font-size:24px;font-weight:600;letter-spacing:-.01em}
+.hdr .sub{color:var(--dim);font-size:13px;margin-top:2px}
+.hdr .sp{flex:1}
+.chip{display:flex;align-items:center;gap:8px;background:var(--tile);padding:7px 12px;border-radius:4px;font-size:13px;color:var(--tx2);white-space:nowrap}
+.chip b{font-weight:600;color:var(--tx);font-variant-numeric:tabular-nums}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:#555}
+.chip .dot.ok{background:var(--ok)} .chip .dot.warn{background:var(--warn)} .chip .dot.bad{background:var(--red)}
+.btn{background:#2b2b2b;border:0;border-radius:3px;padding:0 16px;height:34px;cursor:pointer;white-space:nowrap}
+.btn:hover:not(:disabled){background:#363636}
+.btn:disabled{opacity:.35;cursor:default}
+.btn.pri{background:var(--red);color:#111;font-weight:600} .btn.pri:hover:not(:disabled){background:var(--red2)}
+.btn.live{background:#ff3b30;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{background:#9e231c}}
+.content{flex:1;overflow:auto;padding:4px 24px 24px;min-height:0}
+.page{display:none} .page.on{display:block}
+.bar2{display:flex;align-items:center;gap:12px;margin:0 0 12px;color:var(--tx2);font-size:13px}
+.bar2 .sp{flex:1}
+.tg{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.tg input{display:none}
+.tg i{width:34px;height:18px;border-radius:9px;background:#3a3a3a;position:relative;transition:.15s}
+.tg i::after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#ddd;transition:.15s}
+.tg input:checked+i{background:var(--red)} .tg input:checked+i::after{left:18px;background:#111}
+select{background:#2b2b2b;border:0;border-radius:3px;height:30px;padding:0 8px}
+.tile{background:var(--tile);border-radius:4px;display:flex;flex-direction:column;min-width:0;position:relative}
+.tile .th{display:flex;align-items:baseline;gap:10px;padding:14px 16px 0}
+.tile .th .t{font-size:14px;font-weight:600}
+.tile .th .s{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .th .x{margin-left:auto;background:none;border:0;color:var(--dim);cursor:pointer;padding:0;width:18px;height:18px}
+.tile .th .x:hover{color:var(--tx)}
+.tile .th .x svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6}
+.tile .cv{flex:1;min-height:0;padding:8px 12px 12px}
+.tile.na{opacity:.45}
+.ov{display:grid;grid-template-columns:minmax(340px,400px) 1fr;gap:8px;align-items:start}
+.ovl{display:grid;gap:8px}
+.mt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.m{height:210px}
+.m .val{padding:2px 16px 0;font-family:var(--num);font-size:36px;font-weight:400;font-variant-numeric:tabular-nums;line-height:1.15}
+.m .val small{font-size:14px;color:var(--tx2);margin-left:4px}
+.m .stats{display:flex;gap:16px;padding:0 16px;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+.m .stats b{color:var(--tx2);font-weight:400;margin-left:4px}
+.m canvas{flex:1;min-height:0;padding:6px 0 0}
+table.kv{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:13px}
+table.kv td{font-family:var(--num)}
+table.kv td,table.kv th{padding:7px 16px;text-align:right;border-top:1px solid #262626}
+table.kv th{color:var(--dim);font-weight:400;border-top:0;font-size:12px}
+table.kv td:first-child,table.kv th:first-child{text-align:left;color:var(--tx2)}
+.form{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;padding:12px 16px;color:var(--tx2);font-size:13px}
+#log{margin:0;padding:8px 16px 14px;font:12px/1.5 Consolas,monospace;color:var(--dim);white-space:pre-wrap;overflow:auto;height:120px}
+.gl{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:8px}
+.gl .tile{height:300px}
+.empty{position:absolute;inset:44px 0 0;display:grid;place-items:center;text-align:center;color:var(--dim);font-size:13px;pointer-events:none}
+.empty small{display:block;color:#555;margin-top:4px;font-size:12px}
+.ex{display:grid;grid-template-columns:220px 1fr;gap:8px}
+.chl{padding:8px 8px 12px;max-height:calc(100vh - 170px);overflow:auto}
+.chl label{display:flex;align-items:center;gap:8px;padding:4px 8px;cursor:pointer;font-size:13px;color:var(--tx2);border-radius:3px;white-space:nowrap;overflow:hidden}
+.chl label:hover{background:var(--hover);color:var(--tx)}
+.chl input{accent-color:var(--red);margin:0}
+table.st{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+table.st th{position:sticky;top:0;background:var(--tile2);color:var(--dim);font-weight:400;text-align:right;padding:8px 12px}
+table.st td{padding:6px 12px;border-top:1px solid #262626;text-align:right;color:var(--tx2)}
+table.st td:first-child,table.st th:first-child{text-align:left;color:var(--tx)}
+table.st tr:hover td{background:#222}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:20;padding:40px}
+#modal .tile{height:100%}
+#drop{display:none;position:fixed;inset:0;z-index:30;background:rgba(255,210,31,.08);border:2px solid var(--red);place-items:center;font-size:18px}
+#toast{position:fixed;right:24px;bottom:24px;background:#2b2b2b;border-left:3px solid var(--red);padding:12px 16px;display:none;z-index:40;max-width:420px}
+input[type=file]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+<aside id="side">
+  <div class="logo"><svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="18.6" fill="#16171a" stroke="#4a4e56" stroke-width="1.4"/><path d="M35.4 20.0L38.2 20.0" stroke="#5a5f68" stroke-width="1.2" stroke-linecap="round"/><path d="M20.0 35.4L20.0 38.2" stroke="#5a5f68" stroke-width="1.2" stroke-linecap="round"/><path d="M4.6 20.0L1.8 20.0" stroke="#5a5f68" stroke-width="1.2" stroke-linecap="round"/><path d="M20.0 4.6L20.0 1.8" stroke="#5a5f68" stroke-width="1.2" stroke-linecap="round"/><circle cx="20" cy="20" r="10" stroke="#2e3136" stroke-width="1"/><path d="M6 20h11M23 20h11M20 6v11M20 23v11" stroke="#33363c" stroke-width="0.9"/><circle cx="32.3" cy="14.0" r="1.08" fill="#ffd21f" opacity="0.47"/><circle cx="31.2" cy="19.0" r="1.11" fill="#ffd21f" opacity="0.49"/><circle cx="29.7" cy="21.7" r="1.14" fill="#ffd21f" opacity="0.51"/><circle cx="26.2" cy="26.7" r="1.18" fill="#ffd21f" opacity="0.53"/><circle cx="24.1" cy="30.4" r="1.21" fill="#ffd21f" opacity="0.56"/><circle cx="23.7" cy="33.8" r="1.24" fill="#ffd21f" opacity="0.59"/><circle cx="19.5" cy="30.1" r="1.27" fill="#ffd21f" opacity="0.62"/><circle cx="15.4" cy="28.0" r="1.30" fill="#ffd21f" opacity="0.64"/><circle cx="12.4" cy="26.6" r="1.33" fill="#ffd21f" opacity="0.67"/><circle cx="7.8" cy="23.8" r="1.37" fill="#ffd21f" opacity="0.70"/><circle cx="5.5" cy="20.8" r="1.40" fill="#ffd21f" opacity="0.74"/><circle cx="5.4" cy="16.0" r="1.43" fill="#ffd21f" opacity="0.77"/><circle cx="7.4" cy="13.2" r="1.46" fill="#ffd21f" opacity="0.80"/><circle cx="12.9" cy="11.2" r="1.49" fill="#ffd21f" opacity="0.83"/><circle cx="16.6" cy="12.4" r="1.52" fill="#ffd21f" opacity="0.86"/><circle cx="19.2" cy="15.0" r="1.56" fill="#ffd21f" opacity="0.90"/><circle cx="20.1" cy="11.5" r="1.59" fill="#ffd21f" opacity="0.93"/><circle cx="23.6" cy="8.7" r="1.62" fill="#ffd21f" opacity="0.97"/><circle cx="27.8" cy="8.7" r="2.7" fill="#ffd21f"/></svg><svg class="wm" viewBox="130 -1509 7344 1549" aria-label="PicoSim"><path d="M285 -564V-793H750Q837 -793 890.25 -852.3399999999999Q943.5 -911.68 943.5 -1008.0Q943.5 -1106.5 890.5282805429864 -1165.75Q837.5565610859728 -1225.0 750 -1225H285V-1454H743Q877.9205607476636 -1454.0 978.2102803738318 -1398.5Q1078.5 -1343.0 1134.25 -1243.0Q1190 -1143 1190 -1008Q1190 -874 1134.159836065574 -774.0Q1078.3196721311476 -674.0 977.9098360655738 -619.0Q877.5 -564.0 743 -564ZM170 0V-1454H409V0ZM1447.5 -1215.0V-1454.0H1686.5V-1215.0ZM1447.5 0.0V-1038.0H1686.5V0.0ZM2428 15Q2209.5 15.0 2089.25 -106.92461197339246Q1969.0 -228.84922394678492 1969 -451V-592Q1969.0 -812.1636771300448 2089.175131348511 -932.5818385650224Q2209.3502626970226 -1053.0 2428.2224168126095 -1053.0Q2553 -1053 2653.700787401575 -1010.0Q2754.4015748031497 -967.0 2814 -887L2652 -735Q2612.0 -777.5 2556.868852459016 -800.75Q2501.7377049180327 -824.0 2441 -824Q2330.1370967741937 -824.0 2269.0685483870966 -763.2380952380952Q2208.0 -702.4761904761905 2208 -592V-451Q2208.0 -337.5719844357977 2269.0685483870966 -275.78599221789887Q2330.1370967741937 -214.0 2441 -214Q2501.6858407079644 -214.0 2556.7699115044247 -239.0810810810811Q2611.853982300885 -264.1621621621622 2652 -310L2814 -148Q2754.521568627451 -70.0 2653.5107843137257 -27.5Q2552.5 15.0 2428 15ZM3457 15Q3248.233644859813 15.0 3133.6168224299063 -103.5Q3019 -222 3019 -437V-606Q3019 -819 3133.6168224299063 -936.0Q3248.233644859813 -1053.0 3457 -1053Q3665.766355140187 -1053.0 3780.3831775700937 -936.0Q3895 -819 3895 -606V-434Q3895 -220 3780.3831775700937 -102.5Q3665.766355140187 15.0 3457 15ZM3456.622356495468 -214.0Q3551.5 -214.0 3603.75 -271.80392156862746Q3656.0 -329.6078431372549 3656 -434V-606Q3656 -710 3603.75 -767.0Q3551.5 -824.0 3456.622356495468 -824.0Q3362.631419939577 -824.0 3310.3157099697883 -767.0Q3258 -710 3258 -606V-434Q3258.0 -329.6078431372549 3310.3157099697883 -271.80392156862746Q3362.631419939577 -214.0 3456.622356495468 -214.0Z" fill="#e9eaec"/><path d="M4602 15Q4497 15 4400.5 -5.5Q4304 -26 4219.75 -66.25Q4135.5 -106.5 4065 -165L4192 -356Q4275.5 -285.5 4380.5 -248.75Q4485.5 -212.0 4602 -212Q4748 -212 4828.5 -264.25Q4909.0 -316.5 4909 -411V-412Q4909 -485 4868.5 -523.75Q4828.0 -562.5 4762.0 -581.25Q4696 -600 4618.0 -612.5Q4534.5 -626.0 4449.25 -645.25Q4364.0 -664.5 4292.5 -706.0Q4221.0 -747.5 4177.5 -825.0Q4134.0 -902.5 4134 -1032V-1033Q4134 -1241 4271.5 -1355.0Q4409 -1469 4660 -1469Q4777.5 -1469.0 4894.5 -1430.5Q5011.5 -1392.0 5117 -1317L5001 -1120Q4917.5 -1180.5 4830.5 -1211.25Q4743.5 -1242.0 4660 -1242Q4522.5 -1242.0 4446.75 -1191.5Q4371 -1141 4371 -1049V-1048Q4371 -972 4415.5 -932.5Q4460 -893 4531.75 -874.0Q4603.5 -855.0 4686.0 -838.5Q4768.0 -822.5 4849.5 -799.5Q4931.0 -776.5 4998.25 -733.25Q5065.5 -690.0 5105.75 -614.5Q5146 -539 5146 -418V-416Q5146.0 -210.5 5003.5 -97.75Q4861 15 4602 15ZM5418.5 -1215.0V-1454.0H5657.5V-1215.0ZM5418.5 0.0V-1038.0H5657.5V0.0ZM7195 0V-614Q7195.0 -714.4347826086956 7145.009216589862 -769.2173913043478Q7095.018433179724 -824.0 7003 -824Q6916 -824 6868.75 -771.2252252252252Q6821.5 -718.4504504504505 6821.5 -622.0L6775.5 -842.0Q6825.092833876221 -943.5925925925926 6904.441368078176 -998.2962962962963Q6983.78990228013 -1053.0 7080 -1053Q7249 -1053 7341.5 -938.581560283688Q7434.0 -824.1631205673759 7434 -615V0ZM5970 0V-1038H6209V0ZM6582.5 0.0V-614.0Q6582.5 -714.4347826086956 6533.25 -769.2173913043478Q6484 -824 6393 -824Q6304.9617224880385 -824.0 6256.980861244019 -776.2475247524753Q6209.0 -728.4950495049505 6209 -642L6188 -857Q6234.5 -951.0 6307.5 -1002.0Q6380.5 -1053.0 6475.143835616438 -1053.0Q6640.267123287671 -1053.0 6730.8835616438355 -938.581560283688Q6821.5 -824.1631205673759 6821.5 -615.0V0.0Z" fill="#ffd21f"/></svg></div>
+  <nav class="nav" id="nav">
+    <button data-p="overview" class="on"><svg viewBox="0 0 24 24"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/></svg>Overview</button>
+    <div class="grp">Graphs</div>
+    <button data-p="vd"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg>Dynamics<span class="n" data-cnt="vd"></span></button>
+    <button data-p="pt"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Powertrain<span class="n" data-cnt="pt"></span></button>
+    <button data-p="ty"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>Tires<span class="n" data-cnt="ty"></span></button>
+    <button data-p="sa"><svg viewBox="0 0 24 24"><path d="M12 3v4M8 7h8M9 7l-2 4 4 2-4 2 4 2-2 4M15 21v-4"/></svg>Suspension<span class="n" data-cnt="sa"></span></button>
+    <button data-p="sd"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h5l3 3 3-3h5M12 15v5"/></svg>Driver<span class="n" data-cnt="sd"></span></button>
+    <div class="grp">Tools</div>
+    <button data-p="ex"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-8 4 5"/></svg>Explorer</button>
+    <button data-p="stats"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M9 6v12"/></svg>Statistics</button>
+  </nav>
+</aside>
+<section id="main">
+  <div class="hdr">
+    <div><h1 id="title">Overview</h1><div class="sub" id="subtitle">Live data from the car</div></div>
+    <span class="sp"></span>
+    <div class="chip"><i class="dot" id="dot"></i><span id="stTxt">Not connected</span><b id="stRate"></b></div>
+    <button class="btn pri" id="bConn">Connect Receiver</button>
+    <button class="btn" id="bDemo">Demo</button>
+    <button class="btn" id="bRec" disabled>Record</button>
+    <button class="btn" id="bZero" disabled title="Car level and stationary">Calibrate</button>
+  </div>
+  <div class="sess">
+    <h4>Sessions</h4>
+    <div class="slot"><b style="background:var(--red)"></b><span class="nm" id="nmA">Session A</span><button class="lnk" data-load="A">Open</button><span class="mt" id="mtA">Not loaded</span></div>
+    <div class="slot"><b style="background:#e6e9ee"></b><span class="nm" id="nmB">Session B</span><button class="lnk" data-load="B">Open</button><span class="mt" id="mtB">Compare</span></div>
+    <div class="acts"><button class="lnk" id="bUseLive">Use live data</button><button class="lnk" id="bClearB">Clear B</button></div>
+    <input type="file" id="file" accept=".csv,text/csv">
+  </div>
+  <div class="content" id="content">
+  <div class="page on" id="p-overview">
+    <div class="ov">
+      <div class="ovl">
+        <div class="tile" style="height:420px"><div class="th"><span class="t">G-G</span><span class="s">Last 3 s and session limit</span><span class="x"></span>
+          <select id="ggRange" style="height:24px"><option>1</option><option selected>1.5</option><option>2</option><option>3</option></select></div>
+          <div class="cv"><canvas id="cGG"></canvas></div></div>
+        <div class="tile"><div class="th"><span class="t">Session Peaks</span><span class="x"></span><button class="lnk" id="bPeak">Reset</button></div>
+          <table class="kv" style="margin-top:8px">
+            <tr><th></th><th>Max</th><th>95th pct</th></tr>
+            <tr><td>Braking</td><td id="pkBrk">—</td><td id="p95Brk">—</td></tr>
+            <tr><td>Acceleration</td><td id="pkAcc">—</td><td id="p95Acc">—</td></tr>
+            <tr><td>Lateral L / R</td><td id="pkLat">—</td><td id="p95Lat">—</td></tr>
+            <tr><td>Combined</td><td id="pkComb">—</td><td id="p95Comb">—</td></tr>
+            <tr><td>Yaw rate</td><td id="pkYaw">—</td><td id="p95Yaw">—</td></tr>
+          </table></div>
+        <div class="tile"><div class="th"><span class="t">Sensor</span></div>
+          <div class="form">Longitudinal axis <select id="axLong"></select>Lateral axis <select id="axLat"></select></div>
+          <table class="kv"><tr><th>Raw</th><th>X</th><th>Y</th><th>Z</th></tr>
+            <tr><td>Accel (g)</td><td id="rax">—</td><td id="ray">—</td><td id="raz">—</td></tr>
+            <tr><td>Gyro (°/s)</td><td id="rgx">—</td><td id="rgy">—</td><td id="rgz">—</td></tr></table>
+          <div style="height:8px"></div></div>
+      </div>
+      <div>
+        <div class="bar2">Metrics<span class="sp"></span>Window
+          <select id="win"><option value="10">10 seconds</option><option value="30">30 seconds</option><option value="60">60 seconds</option></select>
+          <button class="btn" id="bAnalyze" style="height:30px">Analyze Session</button></div>
+        <div class="mt" id="metrics"></div>
+        <div class="tile" style="margin-top:8px"><div class="th"><span class="t">Receiver Log</span></div><pre id="log"></pre></div>
+      </div>
+    </div>
+  </div>
+  <div class="page" id="p-vd"></div><div class="page" id="p-pt"></div><div class="page" id="p-ty"></div>
+  <div class="page" id="p-sa"></div><div class="page" id="p-sd"></div>
+  <div class="page" id="p-ex">
+    <div class="ex">
+      <div class="tile"><div class="th"><span class="t">Channels</span><span class="s">Up to 8</span></div><div class="chl" id="chList"></div></div>
+      <div style="display:grid;gap:8px">
+        <div class="tile" style="height:520px"><div class="th"><span class="t">Time Plot</span><span class="s">Scroll to zoom, drag to pan, double-click to reset</span></div>
+          <div class="cv"><canvas id="cTime"></canvas></div><div class="empty" id="eTime">No session</div></div>
+        <div class="tile" style="height:360px"><div class="th"><span class="t">Custom Plot</span><span class="x"></span>
+          <select id="xyX"></select><span class="s">vs</span><select id="xyY"></select></div>
+          <div class="cv"><canvas id="cXY"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="page" id="p-stats"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div class="tile"><div class="th"><span class="t">Session A</span><span class="x"></span><button class="lnk" data-exp="A">Export CSV</button></div><div id="stA" style="padding:8px 4px"></div></div>
+    <div class="tile"><div class="th"><span class="t">Session B</span><span class="x"></span><button class="lnk" data-exp="B">Export CSV</button></div><div id="stB" style="padding:8px 4px"></div></div>
+  </div></div>
+  </div>
+</section>
+</div>
+<div id="modal"></div>
+<div id="drop">Drop CSV to open as Session A. Hold Shift for Session B.</div>
+<div id="toast"></div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const FONT='"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif';
+const C={red:"#ffd21f",redF:"rgba(255,210,31,",B:"#e6e9ee",grid:"#2a2c30",axis:"#464a50",dim:"#7b8088",tx2:"#b8bcc2",tx:"#fff"};
+const SERIES=["#ffd21f","#ffffff","#8a9099","#ff8a1f"];
+function toast(m){ const t=$("toast"); t.textContent=m; t.style.display="block"; clearTimeout(toast.h); toast.h=setTimeout(()=>t.style.display="none",3500); }
+
+/* ---------------- Live: serial, demo, recording (protocol unchanged) ---------------- */
+const AXES=[["X",0,1],["-X",0,-1],["Y",1,1],["-Y",1,-1],["Z",2,1],["-Z",2,-1]];
+let liveCache=null;
+const st={ext:{},port:null,reader:null,demo:null,hist:[],link:[],sess:{t:[],ax:[],ay:[],az:[],gx:[],gy:[],gz:[],long:[],lat:[],comb:[]},t0:null,
+  raw:{a:[0,0,1],g:[0,0,0]},bias:{long:0,lat:0},peak:null,lastRx:0,rate:null,loss:null,rec:null,recStart:0};
+const resetPeak=()=>st.peak={brake:0,accel:0,left:0,right:0,comb:0,yaw:0}; resetPeak();
+for(const [id,d] of [["axLong","X"],["axLat","Y"]]){ const s=$(id); for(const [n] of AXES) s.add(new Option(n)); s.value=d; }
+try{ const s=JSON.parse(localStorage.getItem("fsaeAxes")||"null"); if(s){ $("axLong").value=s.long; $("axLat").value=s.lat; if(s.range) $("ggRange").value=s.range; } }catch(e){}
+for(const id of ["axLong","axLat","ggRange"]) $(id).addEventListener("change",()=>{ if(id!=="ggRange") st.bias={long:0,lat:0};
+  try{ localStorage.setItem("fsaeAxes",JSON.stringify({long:$("axLong").value,lat:$("axLat").value,range:$("ggRange").value})); }catch(e){} });
+const pick=(a,n)=>{ const [,i,s]=AXES.find(x=>x[0]===n); return a[i]*s; };
+function log(m){ const el=$("log"); el.textContent+=m+"\n"; if(el.textContent.length>8000) el.textContent=el.textContent.slice(-6000); el.scrollTop=el.scrollHeight; }
+function onSample(tPc,carMs,count,a,g){
+  const now=performance.now(); st.raw={a,g}; st.lastRx=now; if(st.t0===null) st.t0=now;
+  const long=pick(a,$("axLong").value)-st.bias.long, lat=pick(a,$("axLat").value)-st.bias.lat, comb=Math.hypot(long,lat);
+  st.hist.push({t:now,long,lat,comb,vert:a[2],yaw:g[2],gx:g[0],gy:g[1]});
+  while(st.hist.length && st.hist[0].t<now-61000) st.hist.shift();
+  const S=st.sess; if(S.t.length<400000){ S.t.push((now-st.t0)/1000); S.ax.push(a[0]); S.ay.push(a[1]); S.az.push(a[2]); S.gx.push(g[0]); S.gy.push(g[1]); S.gz.push(g[2]); S.long.push(long); S.lat.push(lat); S.comb.push(comb); }
+  const p=st.peak; p.brake=Math.min(p.brake,long); p.accel=Math.max(p.accel,long); p.left=Math.min(p.left,lat); p.right=Math.max(p.right,lat); p.comb=Math.max(p.comb,comb); p.yaw=Math.max(p.yaw,Math.abs(g[2]));
+  if(st.rec) st.rec.push([tPc,carMs,count,a[0],a[1],a[2],g[0],g[1],g[2],long.toFixed(3),lat.toFixed(3)].join(","));
+}
+function onLine(line){
+  line=line.trim(); if(!line) return;
+  if(line.startsWith("D,")){ const f=line.split(","); if(f.length<10) return; const n=f.slice(1).map(Number); if(n.some(Number.isNaN)) return; onSample(n[0],n[2],n[1],[n[3],n[4],n[5]],[n[6],n[7],n[8]]); }
+  else if(line.startsWith("S,")){ const [,got,lost]=line.split(",").map(Number); st.rate=got; st.loss=(got+lost)?lost/(got+lost)*100:0; st.link.push({t:performance.now(),hz:got,loss:st.loss}); if(st.link.length>300) st.link.shift(); }
+  else log(line.replace(/^#\s?/,""));
+}
+async function connect(){
+  if(!("serial" in navigator)){ toast("Web Serial is not available. Open this file in Chrome or Edge."); return; }
+  if(st.port){ await disconnect(); return; }
+  stopDemo();
+  try{ st.port=await navigator.serial.requestPort(); await st.port.open({baudRate:115200}); }catch(e){ st.port=null; log("Connection cancelled: "+e.message); return; }
+  $("bConn").textContent="Disconnect"; $("bConn").classList.remove("pri"); newSession(); running(true); log("Receiver connected"); readLoop();
+}
+async function readLoop(){
+  const dec=new TextDecoder(); let buf="";
+  try{ while(st.port && st.port.readable){ st.reader=st.port.readable.getReader();
+      try{ for(;;){ const {value,done}=await st.reader.read(); if(done) break; buf+=dec.decode(value,{stream:true}); let i;
+          while((i=buf.indexOf("\n"))>=0){ onLine(buf.slice(0,i)); buf=buf.slice(i+1); } if(buf.length>4096) buf=""; } }
+      finally{ st.reader.releaseLock(); st.reader=null; } } }
+  catch(e){ log("Connection lost: "+e.message); }
+  await disconnect();
+}
+async function disconnect(){
+  const port=st.port; st.port=null;
+  try{ if(st.reader) await st.reader.cancel(); }catch(e){} try{ if(port) await port.close(); }catch(e){}
+  $("bConn").textContent="Connect Receiver"; $("bConn").classList.add("pri"); if(!st.demo) running(false);
+}
+if("serial" in navigator) navigator.serial.addEventListener("disconnect",()=>{ log("USB disconnected"); disconnect(); });
+function startDemo(){
+  if(st.port) return; if(st.demo){ stopDemo(); return; }
+  newSession(); let t=0,n=0,got=0,lost=0,v=12; const pose={psi:0,x:0,y:0};
+  const seg=[["a",3.2],["b",1.1],["c",2.6,1],["a",2.0],["b",0.8],["c",2.0,-1],["a",1.6],["c",3.0,1],["a",2.6],["b",1.2],["c",2.2,-1]], L=seg.reduce((s,x)=>s+x[1],0);
+  st.demo=setInterval(()=>{ t+=0.02; n++;
+    let u=t%L,k=0; while(u>seg[k][1]){ u-=seg[k][1]; k++; } const [kind,dur,dir]=seg[k], ph=u/dur; let lon=0,lat=0;
+    if(kind==="a") lon=0.95-0.45*ph; else if(kind==="b") lon=-1.45*Math.min(1,ph*4)*(1-0.25*ph); else { lat=dir*1.35*Math.pow(Math.sin(Math.PI*ph),0.6); lon=-0.25*(1-ph)+0.35*ph*ph; }
+    v=Math.max(6,Math.min(28,v+lon*9.81*0.02)); const r=()=>Math.random()-.5; lon+=r()*0.05; lat+=r()*0.05;
+    if(Math.random()<0.025){ lost++; return; } got++;
+    const thr=kind==="a"?(ph<0.7?1:0.85):kind==="c"?0.15+0.6*ph:0, brk=kind==="b"?0.95*Math.min(1,ph*4):0;
+    const before=st.sess.t.length;
+    onSample(Math.round(performance.now()),Math.round(t*1000),n,[lon,lat,1+r()*0.08+0.04*Math.abs(lat)],[-4*lat+r()*2,3*lon+r()*2,lat*9.81/v*57.3+r()*1.5]);
+    if(st.sess.t.length>before) demoExtra(pose,lon,lat,v,thr,brk,r);
+    if(n%50===0){ onLine(`S,${got},${lost}`); got=0; lost=0; } },20);
+  $("bDemo").textContent="Stop Demo"; running(true); log("Demo data playing. This is not vehicle data.");
+}
+// Synthetic full-vehicle channels for the demo only (simple load-transfer model, not vehicle data)
+const DM={m:300,wb:1.53,tr:1.2,h:0.3,cla:3.2,cda:1.3,k:30,ratio:3.9,lim:[46,63,76,88,97,105]};
+function demoExtra(P,lon,lat,v,thr,brk,r){
+  const E=st.ext, g=9.81, kmh=v*3.6, push=(k,x)=>(E[k]||(E[k]=[])).push(x);
+  let gear=1; while(gear<6 && kmh>DM.lim[gear-1]*0.9) gear++;
+  const rpm=Math.max(3200,Math.min(12500,11000*kmh/DM.lim[gear-1]));
+  const df=0.5*1.2*DM.cla*v*v, dr=0.5*1.2*DM.cda*v*v, mg=DM.m*g, lt=DM.m*lon*g*DM.h/DM.wb, la=DM.m*lat*g*DM.h/DM.tr;
+  const f0=0.47*(mg+df)/2, r0=0.53*(mg+df)/2, s0f=0.47*mg/2, s0r=0.53*mg/2;
+  const Fz={FL:f0-lt/2+0.47*la,FR:f0-lt/2-0.47*la,RL:r0+lt/2+0.53*la,RR:r0+lt/2-0.53*la}, sum=mg+df;
+  const steer=Math.max(-120,Math.min(120,(DM.wb*lat*g/Math.max(v,5)**2+0.012*lat)*57.3*DM.ratio));
+  P.psi+=lat*g/Math.max(v,3)*0.02; P.x+=v*Math.cos(P.psi)*0.02; P.y+=v*Math.sin(P.psi)*0.02;
+  const Fxr=lon>=0?(DM.m*lon*g+dr)*(thr>0?1:0):0.35*DM.m*lon*g;
+  push("speedKmh",kmh); push("rpm",rpm); push("gear",gear); push("throttle",thr); push("brake",brk); push("steerDeg",steer+r()*0.6);
+  push("posX",P.x); push("posZ",P.y); push("downforceN",df); push("dragN",dr);
+  push("wTqL",Fxr/2*0.2286); push("wTqR",Fxr/2*0.2286); push("satNm",lat*30+r()*2); push("steerTqNm",(lat*30)/DM.ratio*1.4+r()*0.3);
+  for(const w of ["FL","FR","RL","RR"]){ const f=w[0]==="F", z=Math.max(50,Fz[w]), side=w[1]==="L"?1:-1;
+    const alpha=(f?2.4:2.0)*lat/(1-0.33*Math.min(1.4,Math.abs(lat)))+r()*0.15, Fy=lat*g*DM.m*z/sum;
+    push(w+"_Fz",z); push(w+"_compMm",(z-(f?s0f:s0r))/DM.k); push(w+"_suspN",z*0.95); push(w+"_camberDeg",(f?-1.5:-1.0)-side*lat*(f?0.9:0.7));
+    push(w+"_alpha",alpha); push(w+"_Fy",Fy); push(w+"_mu",Math.abs(Fy)/z+r()*0.02);
+    push(w+"_Fx",f?(lon<0?0.65*DM.m*lon*g/2:0):Fxr/2); push(w+"_slip",f?(lon<0?lon*0.06:0):(Fxr/2)/Math.max(200,z)*0.09); }
+}
+function stopDemo(){ if(!st.demo) return; clearInterval(st.demo); st.demo=null; $("bDemo").textContent="Demo"; if(!st.port) running(false); }
+function running(on){ $("bRec").disabled=!on; $("bZero").disabled=!on; if(!on && st.rec) stopRec(); }
+function newSession(){ for(const k in st.sess) st.sess[k]=[]; st.ext={}; liveCache=null; st.t0=null; st.hist=[]; st.link=[]; resetPeak(); }
+function startRec(){ st.rec=["pc_ms,car_ms,count,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,long_g,lat_g"]; st.recStart=Date.now(); $("bRec").classList.add("live"); $("bRec").textContent="Stop Recording"; }
+function stopRec(){
+  const rows=st.rec; st.rec=null; $("bRec").classList.remove("live"); $("bRec").textContent="Record"; if(!rows||rows.length<2) return;
+  const d=new Date(st.recStart), p=x=>String(x).padStart(2,"0");
+  const name=`fsae_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.csv`;
+  download(name,rows.join("\n")+"\n"); log(`Saved ${name} (${rows.length-1} rows)`);
+}
+function download(name,text){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type:"text/csv"})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+function zero(){ const r=st.hist.filter(h=>h.t>performance.now()-1000); if(!r.length) return;
+  st.bias.long+=r.reduce((s,h)=>s+h.long,0)/r.length; st.bias.lat+=r.reduce((s,h)=>s+h.lat,0)/r.length; resetPeak();
+  log(`Calibrated: longitudinal ${st.bias.long.toFixed(3)} g, lateral ${st.bias.lat.toFixed(3)} g`); }
+$("bConn").onclick=connect; $("bDemo").onclick=startDemo; $("bZero").onclick=zero; $("bPeak").onclick=resetPeak;
+$("bRec").onclick=()=>st.rec?stopRec():startRec();
+
+/* ---------------- Drawing helpers ---------------- */
+function fit(c){ const r=c.getBoundingClientRect(), d=devicePixelRatio||1, w=Math.max(1,Math.round(r.width*d)), h=Math.max(1,Math.round(r.height*d));
+  if(c.width!==w||c.height!==h){ c.width=w; c.height=h; } const x=c.getContext("2d"); x.setTransform(d,0,0,d,0,0); x.clearRect(0,0,r.width,r.height); return [x,r.width,r.height]; }
+function ticks(a,b,n=5){ if(!(b>a)){ const m=Math.abs(a)||1; a-=m*.5; b+=m*.5; } const s0=(b-a)/n, mag=10**Math.floor(Math.log10(s0)), e=s0/mag;
+  const step=(e>=7.5?10:e>=3.5?5:e>=1.5?2:1)*mag, out=[]; for(let v=Math.ceil(a/step)*step; v<=b+step*1e-9; v+=step) out.push(Math.abs(v)<step*1e-9?0:v);
+  return {list:out,dec:Math.max(0,-Math.floor(Math.log10(step)+1e-9))}; }
+function txt(ctx,s,x,y,col,al="left",bl="middle",sz=11,wt=400){ ctx.fillStyle=col; ctx.font=`${wt} ${sz}px ${FONT}`; ctx.textAlign=al; ctx.textBaseline=bl; ctx.fillText(s,x,y); }
+const fmt=(v,d=2)=>Number.isFinite(v)?v.toFixed(d):"—";
+const sgn=(v,d=2)=>Number.isFinite(v)?(v>=0?"+":"")+v.toFixed(d):"—";
+function lb(a,x){ let lo=0,hi=a.length; while(lo<hi){ const m=(lo+hi)>>1; if(a[m]<x) lo=m+1; else hi=m; } return lo; }
+function pct(sorted,p){ if(!sorted.length) return NaN; const i=(sorted.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i); return sorted[lo]+(sorted[hi]-sorted[lo])*(i-lo); }
+function range(arrs,sym=false){ let lo=Infinity,hi=-Infinity; for(const a of arrs) for(let i=0;i<a.length;i++){ const v=a[i]; if(v<lo) lo=v; if(v>hi) hi=v; }
+  if(!Number.isFinite(lo)) return [0,1]; if(sym){ const m=Math.max(-lo,hi)*1.08||1; return [-m,m]; } if(hi-lo<1e-9) return [lo-1,hi+1]; const m=(hi-lo)*.06; return [lo-m,hi+m]; }
+function axes(ctx,w,h,xr,yr,xl,yl){
+  const pl=48,pr=10,pt=8,pb=24, X=v=>pl+(v-xr[0])/(xr[1]-xr[0])*(w-pl-pr), Y=v=>h-pb-(v-yr[0])/(yr[1]-yr[0])*(h-pt-pb);
+  const tx=ticks(xr[0],xr[1],Math.max(3,Math.floor((w-pl)/80))), ty=ticks(yr[0],yr[1],4); ctx.lineWidth=1;
+  for(const v of ty.list){ const y=Math.round(Y(v))+.5; if(y<pt-1||y>h-pb+1) continue; ctx.strokeStyle=v===0?C.axis:C.grid; ctx.beginPath(); ctx.moveTo(pl,y); ctx.lineTo(w-pr,y); ctx.stroke(); txt(ctx,v.toFixed(ty.dec),pl-8,y,C.dim,"right"); }
+  for(const v of tx.list){ const x=Math.round(X(v))+.5; if(x<pl-1||x>w-pr+1) continue; if(v===0){ ctx.strokeStyle=C.axis; ctx.beginPath(); ctx.moveTo(x,pt); ctx.lineTo(x,h-pb); ctx.stroke(); } txt(ctx,v.toFixed(tx.dec),x,h-pb+12,C.dim,"center"); }
+  if(xl) txt(ctx,xl,w-pr,h-pb-8,C.dim,"right","middle",11); if(yl) txt(ctx,yl,pl+6,pt+8,C.dim,"left","middle",11);
+  return {X,Y,pl,pr,pt,pb};
+}
+function area(ctx,xs,ys,X,Y,base,h,color=C.red,fill=true){
+  if(xs.length<2) return;
+  if(fill){ const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,C.redF+".42)"); g.addColorStop(1,C.redF+".02)");
+    ctx.beginPath(); ctx.moveTo(X(xs[0]),base); for(let i=0;i<xs.length;i++) ctx.lineTo(X(xs[i]),Y(ys[i])); ctx.lineTo(X(xs[xs.length-1]),base); ctx.closePath(); ctx.fillStyle=g; ctx.fill(); }
+  ctx.beginPath(); for(let i=0;i<xs.length;i++){ const x=X(xs[i]),y=Y(ys[i]); i?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.strokeStyle=color; ctx.lineWidth=1.6; ctx.stroke();
+}
+function decimate(t,v,t0,t1,X){
+  const xs=[],ys=[]; let i=Math.max(0,lb(t,t0)-1), px=null, mn=0, mx=0;
+  for(;i<t.length;i++){ const y=v[i]; if(!Number.isFinite(y)) continue; const x=Math.round(X(t[i]));
+    if(x!==px){ if(px!==null){ xs.push(t[i-1]); ys.push(mn); xs.push(t[i-1]); ys.push(mx); } px=x; mn=mx=y; } else { if(y<mn) mn=y; if(y>mx) mx=y; }
+    xs.push(t[i]); ys.push(y); if(t[i]>t1) break; }
+  return [xs,ys];
+}
+function envelope(xs,ys,bins=72){ const r=new Float64Array(bins);
+  for(let i=0;i<xs.length;i++){ const x=xs[i],y=ys[i]; if(!Number.isFinite(x)||!Number.isFinite(y)) continue; const k=Math.min(bins-1,Math.floor((Math.atan2(y,x)+Math.PI)/(2*Math.PI)*bins)), m=Math.hypot(x,y); if(m>r[k]) r[k]=m; }
+  return r; }
+function drawEnv(ctx,r,cx,cy,k,col,lw){ const n=r.length; ctx.beginPath(); let s=false;
+  for(let j=0;j<=n;j++){ const q=j%n; if(!r[q]) continue; const a=-Math.PI+(q+.5)/n*2*Math.PI, x=cx+Math.cos(a)*r[q]*k, y=cy-Math.sin(a)*r[q]*k; s?ctx.lineTo(x,y):ctx.moveTo(x,y); s=true; }
+  ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.stroke(); }
+function ggFrame(ctx,w,h,rng){
+  const R=Math.min(w,h)/2-22, cx=w/2, cy=h/2, k=R/rng; ctx.lineWidth=1;
+  for(let g=0.5; g<=rng+1e-6; g+=0.5){ ctx.strokeStyle=C.grid; ctx.beginPath(); ctx.arc(cx,cy,g*k,0,Math.PI*2); ctx.stroke(); txt(ctx,g.toFixed(1),cx+4,cy-g*k-7,C.dim,"left","middle",10); }
+  ctx.strokeStyle=C.axis; ctx.beginPath(); ctx.moveTo(cx-R,cy); ctx.lineTo(cx+R,cy); ctx.moveTo(cx,cy-R); ctx.lineTo(cx,cy+R); ctx.stroke();
+  txt(ctx,"Accel",cx,cy-R-11,C.dim,"center"); txt(ctx,"Brake",cx,cy+R+11,C.dim,"center"); txt(ctx,"L",cx-R-10,cy,C.dim,"center"); txt(ctx,"R",cx+R+10,cy,C.dim,"center");
+  return {cx,cy,k};
+}
+
+/* ---------------- Overview ---------------- */
+const METRICS=[
+  {k:"long",n:"Longitudinal G",u:"g",d:2,r:[-1.5,1.5],sym:1,sg:1},{k:"lat",n:"Lateral G",u:"g",d:2,r:[-1.5,1.5],sym:1,sg:1},{k:"comb",n:"Combined G",u:"g",d:2,r:[0,2]},
+  {k:"yaw",n:"Yaw Rate",u:"°/s",d:0,r:[-60,60],sym:1,sg:1},{k:"vert",n:"Vertical G",u:"g",d:2,r:[0.5,1.5]},{k:"gx",n:"Gyro X",u:"°/s",d:1,r:[-20,20],sym:1,sg:1},
+  {k:"gy",n:"Gyro Y",u:"°/s",d:1,r:[-20,20],sym:1,sg:1},{k:"hz",n:"Link Rate",u:"Hz",d:0,r:[0,60],link:1},{k:"loss",n:"Packet Loss",u:"%",d:1,r:[0,10],link:1}];
+for(const M of METRICS){ const d=document.createElement("div"); d.className="tile m";
+  d.innerHTML=`<div class="th"><span class="t">${M.n}</span></div><div class="val"><span>—</span><small>${M.u}</small></div><div class="stats"><span>Min<b>—</b></span><span>Avg<b>—</b></span><span>Max<b>—</b></span></div><canvas></canvas>`;
+  $("metrics").appendChild(d); M.v=d.querySelector(".val span"); M.s=d.querySelectorAll(".stats b"); M.c=d.querySelector("canvas"); }
+function drawMetrics(){
+  const now=performance.now(), win=+$("win").value*1000;
+  for(const M of METRICS){
+    const span=M.link?Math.max(win,10000):win, src=(M.link?st.link:st.hist).filter(p=>now-p.t<=span+100);
+    const xs=src.map(p=>p.t), ys=src.map(p=>p[M.k]); const [ctx,w,h]=fit(M.c);
+    let lo=M.r[0],hi=M.r[1]; for(const v of ys){ if(v<lo) lo=v; if(v>hi) hi=v; } if(M.sym){ const m=Math.max(-lo,hi); lo=-m; hi=m; }
+    const X=t=>w*(1-(now-t)/span), Y=v=>h-2-(v-lo)/(hi-lo)*(h-4);
+    ctx.strokeStyle=C.grid; ctx.lineWidth=1; for(let i=1;i<4;i++){ const y=Math.round(h*i/4)+.5; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+    area(ctx,xs,ys,X,Y,M.sym?Y(0):h,h);
+    if(ys.length){ const last=ys[ys.length-1]; let mn=Infinity,mx=-Infinity,sm=0; for(const v of ys){ mn=Math.min(mn,v); mx=Math.max(mx,v); sm+=v; }
+      M.v.textContent=M.sg?sgn(last,M.d):last.toFixed(M.d); M.s[0].textContent=mn.toFixed(M.d); M.s[1].textContent=(sm/ys.length).toFixed(M.d); M.s[2].textContent=mx.toFixed(M.d); }
+  }
+}
+function drawLiveGG(){
+  const [ctx,w,h]=fit($("cGG")), rng=+$("ggRange").value, {cx,cy,k}=ggFrame(ctx,w,h,rng), S=st.sess;
+  if(S.t.length>20) drawEnv(ctx,envelope(S.lat,S.long),cx,cy,k,C.red,1.8);
+  const now=performance.now(), p=st.hist.filter(q=>q.t>now-3000);
+  for(let i=1;i<p.length;i++){ ctx.strokeStyle=`rgba(255,255,255,${0.06+0.6*i/p.length})`; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(cx+p[i-1].lat*k,cy-p[i-1].long*k); ctx.lineTo(cx+p[i].lat*k,cy-p[i].long*k); ctx.stroke(); }
+  const L=st.hist[st.hist.length-1];
+  if(L){ const cl=v=>Math.max(-rng,Math.min(rng,v)); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(cx+cl(L.lat)*k,cy-cl(L.long)*k,5,0,Math.PI*2); ctx.fill();
+    txt(ctx,`${Math.hypot(L.long,L.lat).toFixed(2)} g`,w-4,h-4,C.tx,"right","bottom",20,300); }
+}
+let p95t=0;
+function updateLive(){
+  const r=st.raw; if(st.lastRx){ ["rax","ray","raz"].forEach((id,i)=>$(id).textContent=r.a[i].toFixed(3)); ["rgx","rgy","rgz"].forEach((id,i)=>$(id).textContent=r.g[i].toFixed(1)); }
+  const p=st.peak; $("pkBrk").textContent=fmt(-p.brake)+" g"; $("pkAcc").textContent=fmt(p.accel)+" g"; $("pkLat").textContent=`${fmt(-p.left)} / ${fmt(p.right)}`; $("pkComb").textContent=fmt(p.comb)+" g"; $("pkYaw").textContent=fmt(p.yaw,0)+" °/s";
+  const S=st.sess;
+  if(S.t.length>50 && performance.now()-p95t>1000){ p95t=performance.now(); const so=a=>Float64Array.from(a).sort();
+    const lo=so(S.long), la=so(S.lat); $("p95Brk").textContent=fmt(-pct(lo,.05))+" g"; $("p95Acc").textContent=fmt(pct(lo,.95))+" g";
+    $("p95Lat").textContent=`${fmt(-pct(la,.05))} / ${fmt(pct(la,.95))}`; $("p95Comb").textContent=fmt(pct(so(S.comb),.95))+" g"; $("p95Yaw").textContent=fmt(pct(so(S.gz.map(Math.abs)),.95),0)+" °/s"; }
+  const age=performance.now()-st.lastRx, live=st.lastRx&&age<1500, dot=$("dot");
+  if(!st.port&&!st.demo){ dot.className="dot"; $("stTxt").textContent="Not connected"; $("stRate").textContent=""; }
+  else if(!live){ dot.className="dot bad"; $("stTxt").textContent=st.lastRx?`No signal for ${(age/1000).toFixed(0)} s`:"Waiting for car"; $("stRate").textContent=""; }
+  else { dot.className="dot "+(st.loss>10?"warn":"ok"); $("stTxt").textContent=st.demo?"Demo":"Receiving"; $("stRate").textContent=`${st.rate??"--"} Hz  ${st.loss==null?"":st.loss.toFixed(1)+"% loss"}`; }
+  if(st.rec){ const s=Math.floor((Date.now()-st.recStart)/1000); $("bRec").textContent=`Stop Recording  ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; }
+}
+
+/* ---------------- Sessions ---------------- */
+const ALIAS={long:["long_g","lonG"],lat:["lat_g","latG"],yaw:["gz_dps","yawRateDeg"],speed:["speedKmh","gps_speed"],rpm:["rpm"],gear:["gear"],steer:["steerDeg"],
+  thr:["throttle"],brk:["brake"],x:["posX","gps_x"],y:["posZ","gps_y"],comb:["comb_g"]};
+const NICE={long:"Longitudinal G",lat:"Lateral G",yaw:"Yaw rate (°/s)",speed:"Speed (km/h)",rpm:"Engine speed (rpm)",gear:"Gear",steer:"Steering angle (°)",thr:"Throttle",brk:"Brake",comb:"Combined G"};
+function R(s,k){ if(!s) return null; if(s.ch.has(k)) return s.ch.get(k); for(const a of ALIAS[k]||[]) if(s.ch.has(a)) return s.ch.get(a); return null; }
+function chName(s,k){ if(s&&s.ch.has(k)) return k; for(const a of ALIAS[k]||[]) if(s&&s.ch.has(a)) return a; return k; }
+const label=k=>NICE[k]||k;
+const ana={A:null,B:null,view:null,cursor:null,lanes:[],drag:null};
+function derive(s){
+  const add=(name,deps,fn)=>{ if(s.ch.has(name)) return; const arr=deps.map(d=>R(s,d)); if(arr.some(a=>!a)) return; const o=new Float64Array(s.n); for(let i=0;i<s.n;i++) o[i]=fn(...arr.map(a=>a[i])); s.ch.set(name,o); };
+  add("comb_g",["long","lat"],(a,b)=>Math.hypot(a,b));
+  add("Fy_front",["FL_Fy","FR_Fy"],(a,b)=>a+b); add("Fy_rear",["RL_Fy","RR_Fy"],(a,b)=>a+b);
+  add("alpha_front",["FL_alpha","FR_alpha"],(a,b)=>(a+b)/2); add("alpha_rear",["RL_alpha","RR_alpha"],(a,b)=>(a+b)/2);
+  add("slip_rear",["RL_slip","RR_slip"],(a,b)=>(a+b)/2); add("Fx_rear",["RL_Fx","RR_Fx"],(a,b)=>a+b);
+  add("LLT_front",["FL_Fz","FR_Fz"],(a,b)=>a-b); add("LLT_rear",["RL_Fz","RR_Fz"],(a,b)=>a-b);
+  add("LongLT",["FL_Fz","FR_Fz","RL_Fz","RR_Fz"],(a,b,c,d)=>(a+b)-(c+d));
+  add("roll_mm",["FL_compMm","FR_compMm","RL_compMm","RR_compMm"],(a,b,c,d)=>((a-b)+(c-d))/2);
+  add("pitch_mm",["FL_compMm","FR_compMm","RL_compMm","RR_compMm"],(a,b,c,d)=>((a+b)-(c+d))/2);
+  add("wTq",["wTqL","wTqR"],(a,b)=>a+b);
+  add("yaw_gain",["yaw","steer"],(y,s)=>Math.abs(s)>1?y/s:NaN);
+}
+function makeSession(name,cols,t){
+  const s={name,ch:new Map(),t:Float64Array.from(t)}; s.n=s.t.length;
+  for(const [k,v] of Object.entries(cols)) s.ch.set(k,v instanceof Float64Array?v:Float64Array.from(v));
+  for(const [k,v] of [...s.ch]){ let ok=false; for(let i=0;i<v.length;i++) if(Number.isFinite(v[i])){ ok=true; break; } if(!ok) s.ch.delete(k); }
+  derive(s); s.dur=s.n?s.t[s.n-1]-s.t[0]:0; s.rate=s.dur>0?(s.n-1)/s.dur:0; return s;
+}
+function parseCSV(text,name){
+  const lines=text.replace(/^﻿/,"").split(/\r?\n/).filter(l=>l.trim()); if(lines.length<3) throw new Error("not enough rows");
+  const head=lines[0].split(",").map(h=>h.trim()), n=lines.length-1, cols=head.map(()=>new Float64Array(n));
+  for(let r=0;r<n;r++){ const f=lines[r+1].split(","); for(let c=0;c<head.length;c++){ const v=f[c]; cols[c][r]=(v===undefined||v==="")?NaN:Number(v); } }
+  const o={}; head.forEach((h,i)=>{ if(h) o[h]=cols[i]; });
+  let t; if(o.t) t=o.t; else if(o.time_s) t=o.time_s; else if(o.car_ms){ const a=o.car_ms,z=a[0]; t=a.map(v=>(v-z)/1000); } else if(o.pc_ms){ const a=o.pc_ms,z=a[0]; t=a.map(v=>(v-z)/1000); } else t=Float64Array.from({length:n},(_,i)=>i/50);
+  for(const k of ["t","time_s","pc_ms","car_ms","count"]) delete o[k];
+  const tt=Float64Array.from(t); for(let i=1;i<tt.length;i++) if(!(tt[i]>=tt[i-1])) tt[i]=tt[i-1];
+  return makeSession(name,o,tt);
+}
+function liveSession(){ const S=st.sess, n=S.t.length; if(n<10) return null;
+  const cols={long_g:S.long.slice(0,n),lat_g:S.lat.slice(0,n),ax_g:S.ax.slice(0,n),ay_g:S.ay.slice(0,n),az_g:S.az.slice(0,n),gx_dps:S.gx.slice(0,n),gy_dps:S.gy.slice(0,n),gz_dps:S.gz.slice(0,n)};
+  for(const [k,v] of Object.entries(st.ext)) if(v.length>=n) cols[k]=v.slice(0,n);
+  return makeSession((st.demo?"Demo":"Live")+" session",cols,S.t.slice(0,n)); }
+function setSession(slot,s){
+  ana[slot]=s; $("nm"+slot).textContent=s?s.name:`Session ${slot}`;
+  $("mt"+slot).textContent=s?`${s.dur.toFixed(1)} s, ${Math.round(s.rate)} Hz, ${s.ch.size} channels`:(slot==="A"?"Not loaded":"Compare");
+  ana.view=null; rebuildPickers(); renderStats(); updateCounts(); redrawPage();
+}
+let loadSlot="A";
+for(const b of document.querySelectorAll("[data-load]")) b.onclick=()=>{ loadSlot=b.dataset.load; $("file").value=""; $("file").click(); };
+$("file").onchange=e=>{ const f=e.target.files[0]; if(f) loadFile(f,loadSlot); };
+async function loadFile(f,slot){ try{ setSession(slot,parseCSV(await f.text(),f.name.replace(/\.csv$/i,""))); if(page==="overview") show("vd"); } catch(err){ toast("Could not open file: "+err.message); } }
+$("bUseLive").onclick=()=>{ const s=liveSession(); if(!s){ toast("No live data yet. Connect the receiver or start the demo."); return; } setSession("A",s); };
+$("bAnalyze").onclick=()=>{ const s=liveSession(); if(!s){ toast("No live data yet."); return; } setSession("A",s); show("vd"); };
+$("bClearB").onclick=()=>setSession("B",null);
+let dd=0;
+addEventListener("dragenter",e=>{ e.preventDefault(); dd++; $("drop").style.display="grid"; });
+addEventListener("dragleave",()=>{ if(--dd<=0){ dd=0; $("drop").style.display="none"; } });
+addEventListener("dragover",e=>e.preventDefault());
+addEventListener("drop",e=>{ e.preventDefault(); dd=0; $("drop").style.display="none"; const fs=[...e.dataTransfer.files].filter(f=>/\.csv$/i.test(f.name)); if(!fs.length) return;
+  if(fs.length>1){ loadFile(fs[0],"A"); loadFile(fs[1],"B"); } else loadFile(fs[0],e.shiftKey?"B":"A"); });
+const sessions=()=>{ const s=[["A",ana.A],["B",ana.B]].filter(x=>x[1]); if(s.length) return s; return liveCache?[["A",liveCache]]:[]; };
+// Graph pages follow live/demo data when no file is open (refresh once per second)
+setInterval(()=>{ if(ana.A||ana.B||page==="overview"||st.sess.t.length<10) return;
+  const prev=liveCache?[...liveCache.ch.keys()].join():""; liveCache=liveSession();
+  if([...liveCache.ch.keys()].join()!==prev) rebuildPickers(); if(!ana.drag) ana.view=null; updateCounts(); if(page==="stats") renderStats(); redrawPage(); },1000);
+
+/* ---------------- Graph library ---------------- */
+const W4=c=>["FL_"+c,"FR_"+c,"RL_"+c,"RR_"+c], WL=["FL","FR","RL","RR"], G=[];
+const def=(p,title,type,o)=>G.push({p,title,type,...o});
+def("vd","G-G Diagram","gg",{y:"long",x:"lat",sub:"Grip envelope"});
+def("vd","Lateral Grip vs Speed","bin",{x:"speed",y:"lat",mode:"abs",sub:"Peak lateral G per speed band"});
+def("vd","Acceleration and Braking vs Speed","bin",{x:"speed",y:"long",mode:"mm",sub:"Peak per speed band"});
+def("vd","Speed","trace",{ch:["speed"],sub:"km/h"});
+def("vd","Longitudinal and Lateral G","trace",{ch:["long","lat"]});
+def("vd","Combined G","trace",{ch:["comb"]});
+def("vd","Combined G Distribution","hist",{ch:"comb",sub:"Share of time"});
+def("vd","Speed Distribution","hist",{ch:"speed",sub:"Share of time"});
+def("vd","Yaw Rate vs Lateral G","scatter",{x:"lat",y:"yaw"});
+def("vd","Understeer Gradient","scatter",{x:"lat",y:"steer",sub:"Slope is steering per g"});
+def("vd","Yaw Rate Gain vs Speed","scatter",{x:"speed",y:"yaw_gain",fit:false,sub:"Yaw rate divided by steering angle"});
+def("vd","Speed Map","map",{c:"speed"});
+def("vd","Lateral G Map","map",{c:"lat"});
+def("vd","Longitudinal G Map","map",{c:"long"});
+def("pt","Time in RPM Band","hist",{ch:"rpm",sub:"Share of time"});
+def("pt","Gear Usage","hist",{ch:"gear",sub:"Share of time"});
+def("pt","Engine Speed vs Vehicle Speed","scatter",{x:"speed",y:"rpm",fit:false,sub:"One line per gear"});
+def("pt","Upshift RPM","hist",{need:["gear","rpm"],xl:"rpm",sub:"Engine speed just before each upshift",from:s=>{ const g=R(s,"gear"),r=R(s,"rpm"); if(!g||!r) return null; const o=[]; for(let i=1;i<s.n;i++) if(g[i]>g[i-1]&&g[i-1]>=1) o.push(r[i-1]); return o; }});
+def("pt","Engine Speed","trace",{ch:["rpm"]});
+def("pt","Throttle and Brake","trace",{ch:["thr","brk"]});
+def("pt","Throttle Position","hist",{ch:"thr",sub:"Share of time"});
+def("pt","Brake Application","hist",{ch:"brk",sub:"Share of time"});
+def("pt","Rear Wheel Torque","trace",{ch:["wTqL","wTqR"],sub:"Nm"});
+def("pt","Drive Torque vs Speed","scatter",{x:"speed",y:"wTq",fit:false,sub:"Total rear wheel torque"});
+def("pt","Gear","trace",{ch:["gear"]});
+def("ty","Normal Load","trace",{ch:W4("Fz"),sub:"N"});
+def("ty","Normal Load Distribution","hist",{chs:W4("Fz"),sub:"Share of time"});
+def("ty","Front Axle Slip Angle vs Lateral Force","scatter",{x:"alpha_front",y:"Fy_front",fit:false});
+def("ty","Rear Axle Slip Angle vs Lateral Force","scatter",{x:"alpha_rear",y:"Fy_rear",fit:false});
+def("ty","Rear Slip Ratio vs Drive Force","scatter",{x:"slip_rear",y:"Fx_rear",fit:false});
+def("ty","Slip Angle","trace",{ch:W4("alpha"),sub:"°"});
+def("ty","Friction Coefficient","trace",{ch:W4("mu")});
+def("ty","Camber","trace",{ch:W4("camberDeg"),sub:"°"});
+def("ty","Front Load Transfer vs Lateral G","scatter",{x:"lat",y:"LLT_front",sub:"FL minus FR, N"});
+def("ty","Rear Load Transfer vs Lateral G","scatter",{x:"lat",y:"LLT_rear",sub:"RL minus RR, N"});
+def("ty","Longitudinal Load Transfer vs Longitudinal G","scatter",{x:"long",y:"LongLT",sub:"Front minus rear, N"});
+def("sa","Suspension Travel","trace",{ch:W4("compMm"),sub:"mm"});
+def("sa","Travel Distribution","hist",{chs:W4("compMm"),sub:"Share of time"});
+def("sa","Roll vs Lateral G","scatter",{x:"lat",y:"roll_mm",sub:"Slope is roll gradient, mm/g"});
+def("sa","Pitch vs Longitudinal G","scatter",{x:"long",y:"pitch_mm",sub:"Slope is pitch gradient, mm/g"});
+def("sa","Spring Force","trace",{ch:W4("suspN"),sub:"N"});
+def("sa","Spring Force Distribution","hist",{chs:W4("suspN"),sub:"Share of time"});
+def("sa","Downforce vs Speed","scatter",{x:"speed",y:"downforceN",fit:false});
+def("sa","Drag vs Speed","scatter",{x:"speed",y:"dragN",fit:false});
+def("sd","Steering Angle","trace",{ch:["steer"]});
+def("sd","Steering Angle Distribution","hist",{ch:"steer",sub:"Share of time"});
+def("sd","Steering Torque vs Lateral G","scatter",{x:"lat",y:"steerTqNm",sub:"Steering wheel torque, Nm"});
+def("sd","Aligning Torque vs Lateral G","scatter",{x:"lat",y:"satNm",sub:"Front axle, Nm"});
+def("sd","Steering Torque","trace",{ch:["steerTqNm"],sub:"Nm"});
+def("sd","Driver Inputs","bars",{need:["thr","brk"],sub:"Share of time",from:s=>{ const t=R(s,"thr"),b=R(s,"brk"); if(!t||!b) return null; const c=[0,0,0,0,0]; let n=0;
+  for(let i=0;i<s.n;i++){ const a=t[i],q=b[i]; if(!Number.isFinite(a)||!Number.isFinite(q)) continue; n++; if(a>0.05&&q>0.05) c[4]++; else if(q>0.05) c[3]++; else if(a>=0.95) c[0]++; else if(a>0.05) c[1]++; else c[2]++; }
+  return [["Full throttle","Part throttle","Coasting","Braking","Overlap"],c.map(v=>n?v/n*100:0)]; }});
+def("sd","Throttle vs Lateral G","scatter",{x:"lat",y:"thr",fit:false});
+def("sd","Brake vs Speed","scatter",{x:"speed",y:"brk",fit:false});
+
+const PAGES={overview:["Overview","Live data from the car"],vd:["Vehicle Dynamics","Grip, balance and speed"],pt:["Powertrain","Engine, gears and drive torque"],
+  ty:["Tires","Loads, slip and forces at each corner"],sa:["Suspension & Aero","Travel, roll, pitch and aero loads"],sd:["Steering & Driver","Steering loads and driver inputs"],
+  ex:["Explorer","Any channel against time or any other channel"],stats:["Statistics","Channel summary for each session"]};
+const EXPAND='<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+for(const p of ["vd","pt","ty","sa","sd"]){
+  const el=$("p-"+p); el.innerHTML=`<div class="bar2"><span id="sum-${p}"></span><span class="sp"></span><label class="tg"><input type="checkbox" id="hide-${p}"><i></i>Hide unavailable</label></div><div class="gl" id="gl-${p}"></div>`;
+  $("hide-"+p).onchange=()=>redrawPage();
+  for(const g of G.filter(g=>g.p===p)){ const d=document.createElement("div"); d.className="tile";
+    d.innerHTML=`<div class="th"><span class="t">${g.title}</span><span class="s">${g.sub||""}</span><button class="x" title="Expand">${EXPAND}</button></div><div class="cv"><canvas></canvas></div><div class="empty"></div>`;
+    g.el=d; g.c=d.querySelector("canvas"); g.e=d.querySelector(".empty"); d.querySelector(".x").onclick=()=>expand(g); d.ondblclick=()=>expand(g);
+    $("gl-"+p).appendChild(d); }
+}
+function needs(g){ if(g.need) return g.need; if(g.ch) return Array.isArray(g.ch)?[g.ch[0]]:[g.ch]; if(g.chs) return [g.chs[0]]; if(g.type==="map") return ["x","y"]; return [g.x,g.y].filter(Boolean); }
+function available(g,s){ return !!s && needs(g).every(k=>R(s,k)); }
+function updateCounts(){ const A=ana.A||ana.B||liveCache;
+  for(const p of ["vd","pt","ty","sa","sd"]){ const gs=G.filter(g=>g.p===p), ok=gs.filter(g=>available(g,A)).length;
+    document.querySelector(`[data-cnt="${p}"]`).textContent=A?`${ok}/${gs.length}`:gs.length;
+    $("sum-"+p).textContent=A?`${ok} of ${gs.length} graphs available for ${A.name}`:`${gs.length} graphs. Open a session to fill them.`; } }
+function drawGraph(g,canvas,big){
+  const ss=sessions(), A=ss[0]&&ss[0][1], ok=available(g,A);
+  if(!big){ g.el.classList.toggle("na",!ok); const hide=$("hide-"+g.p).checked; g.el.style.display=(hide&&!ok)?"none":""; }
+  const [ctx,w,h]=fit(canvas), emp=big?null:g.e;
+  if(!A){ if(emp) emp.innerHTML="No session"; return; }
+  if(!ok){ if(emp) emp.innerHTML=`Not logged<small>Needs ${needs(g).map(k=>chName(A,k)).join(", ")}</small>`; return; }
+  if(emp) emp.innerHTML="";
+  ({trace:gTrace,scatter:gScatter,hist:gHist,gg:gGG,map:gMap,bin:gBin,bars:gBars})[g.type](ctx,w,h,g,ss.filter(([,s])=>available(g,s)),big);
+}
+function legend(ctx,w,items){ let x=w-6; for(const [name,col] of [...items].reverse()){ ctx.font=`400 11px ${FONT}`; const tw=ctx.measureText(name).width; x-=tw; txt(ctx,name,x,10,C.tx2); x-=14; ctx.fillStyle=col; ctx.fillRect(x,8,9,3); x-=14; } }
+const sub=(n,max)=>Math.max(1,Math.floor(n/max));
+function gTrace(ctx,w,h,g,ss){
+  const multi=g.ch.length>1, A=ss[0][1];
+  let t0=Infinity,t1=-Infinity; for(const [,s] of ss){ t0=Math.min(t0,s.t[0]); t1=Math.max(t1,s.t[s.n-1]); }
+  const arrs=[]; for(const [slot,s] of ss) for(const k of (multi&&slot==="B"?[]:g.ch)){ const v=R(s,k); if(v) arrs.push(v); }
+  const yr=range(arrs), ax=axes(ctx,w,h,[t0,t1],yr,"s",""), base=yr[0]<0&&yr[1]>0?ax.Y(0):ax.Y(yr[0]);
+  ctx.save(); ctx.beginPath(); ctx.rect(ax.pl,0,w-ax.pl-ax.pr,h-ax.pb); ctx.clip();
+  if(multi) g.ch.forEach((k,i)=>{ const v=R(A,k); if(!v) return; const [xs,ys]=decimate(A.t,v,t0,t1,ax.X); area(ctx,xs,ys,ax.X,ax.Y,base,h,SERIES[i%4],i===0); });
+  else for(const [slot,s] of [...ss].reverse()){ const [xs,ys]=decimate(s.t,R(s,g.ch[0]),t0,t1,ax.X); area(ctx,xs,ys,ax.X,ax.Y,base,h,slot==="A"?C.red:C.B,slot==="A"); }
+  ctx.restore();
+  if(multi) legend(ctx,w,g.ch.map((k,i)=>[label(k).replace(/ \(.*\)/,""),SERIES[i%4]])); else if(ss.length>1) legend(ctx,w,[["A",C.red],["B",C.B]]);
+}
+function gScatter(ctx,w,h,g,ss,big){
+  const xs=ss.map(([,s])=>R(s,g.x)), ys=ss.map(([,s])=>R(s,g.y)), ax=axes(ctx,w,h,range(xs),range(ys),label(g.x),label(g.y)), lines=[];
+  ss.forEach(([slot,s],j)=>{ const a=xs[j],b=ys[j], step=sub(s.n,big?40000:8000); ctx.fillStyle=slot==="A"?C.redF+".38)":"rgba(230,230,230,.28)";
+    let n=0,sx=0,sy=0,sxx=0,sxy=0;
+    for(let i=0;i<s.n;i+=step){ const x=a[i],y=b[i]; if(!Number.isFinite(x)||!Number.isFinite(y)) continue; ctx.fillRect(ax.X(x)-1,ax.Y(y)-1,2,2); n++; sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; }
+    if(g.fit!==false && n>20){ const k=(n*sxy-sx*sy)/(n*sxx-sx*sx), c0=(sy-k*sx)/n; if(Number.isFinite(k)){ const xr=range([a]);
+      ctx.strokeStyle=slot==="A"?C.red:C.B; ctx.lineWidth=1.6; ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(ax.X(xr[0]),ax.Y(c0+k*xr[0])); ctx.lineTo(ax.X(xr[1]),ax.Y(c0+k*xr[1])); ctx.stroke(); ctx.setLineDash([]);
+      lines.push([`${slot}  Slope ${k.toPrecision(3)}`,slot==="A"?C.red:C.B]); } } });
+  lines.forEach(([t,c],i)=>txt(ctx,t,w-8,14+i*16,c,"right","middle",12,600));
+}
+function gHist(ctx,w,h,g,ss){
+  let src; if(g.from) src=ss.map(([slot,s])=>[slot,g.from(s)||[]]); else if(g.chs) src=g.chs.map((k,i)=>[WL[i],R(ss[0][1],k)||[]]); else src=ss.map(([slot,s])=>[slot,R(s,g.ch)]);
+  const lv=new Set(); let disc=true;
+  for(const [,v] of src){ for(let i=0;i<v.length;i++){ const x=v[i]; if(!Number.isFinite(x)) continue; if(Math.abs(x-Math.round(x))>1e-6||lv.size>14){ disc=false; break; } lv.add(x); } if(!disc) break; }
+  if(lv.size>14||lv.size===0) disc=false;
+  const vals=disc?[...lv].sort((a,b)=>a-b):null; let edges=null, nb;
+  if(disc) nb=vals.length; else { const [lo,hi]=range(src.map(x=>x[1])); nb=g.chs?30:36; edges=Array.from({length:nb+1},(_,i)=>lo+(hi-lo)*i/nb); }
+  const hs=src.map(([key,v])=>{ const c=new Float64Array(nb); let tot=0; for(let i=0;i<v.length;i++){ const x=v[i]; if(!Number.isFinite(x)) continue;
+      const b=disc?vals.indexOf(x):Math.min(nb-1,Math.floor((x-edges[0])/(edges[nb]-edges[0])*nb)); if(b>=0){ c[b]++; tot++; } }
+    for(let i=0;i<nb;i++) c[i]=tot?c[i]/tot*100:0; return [key,c]; });
+  let ym=0; for(const [,c] of hs) for(const x of c) ym=Math.max(ym,x);
+  const xr=disc?[-0.5,nb-0.5]:[edges[0],edges[nb]], ax=axes(ctx,w,h,xr,[0,ym*1.18||1],g.xl||(g.ch?label(g.ch):""),"%");
+  if(disc){ ctx.fillStyle="#1c1c1c"; ctx.fillRect(ax.pl,h-ax.pb+2,w,20); vals.forEach((v,i)=>txt(ctx,String(v),ax.X(i),h-ax.pb+12,C.tx2,"center")); }
+  if(g.chs){ hs.forEach(([,c],j)=>{ ctx.strokeStyle=SERIES[j%4]; ctx.lineWidth=1.6; ctx.beginPath(); for(let i=0;i<nb;i++){ const x0=ax.X(edges[i]),x1=ax.X(edges[i+1]),y=ax.Y(c[i]); i?ctx.lineTo(x0,y):ctx.moveTo(x0,y); ctx.lineTo(x1,y); } ctx.stroke(); });
+    legend(ctx,w,hs.map(([k],j)=>[k,SERIES[j%4]])); return; }
+  const n=hs.length;
+  hs.forEach(([slot,c],j)=>{ const col=slot==="A"?C.red:C.B;
+    for(let i=0;i<nb;i++){ if(!c[i]) continue; let x0,x1;
+      if(disc){ const cw=ax.X(1)-ax.X(0), bw=cw*0.72/n; x0=ax.X(i)-cw*0.36+j*bw; x1=x0+bw-2; }
+      else { const cw=ax.X(edges[1])-ax.X(edges[0]); x0=ax.X(edges[i])+1+(n>1?j*cw/2:0); x1=x0+(n>1?cw/2:cw)-2; }
+      const y=ax.Y(c[i]); if(slot==="A"){ const gr=ctx.createLinearGradient(0,y,0,ax.Y(0)); gr.addColorStop(0,C.red); gr.addColorStop(1,"#5c4a00"); ctx.fillStyle=gr; } else ctx.fillStyle="rgba(230,230,230,.75)";
+      ctx.fillRect(x0,y,Math.max(1,x1-x0),ax.Y(0)-y);
+      if(disc&&c[i]>=0.5) txt(ctx,c[i].toFixed(1)+"%",(x0+x1)/2,y-8,col,"center","middle",11); } });
+  if(n>1) legend(ctx,w,[["A",C.red],["B",C.B]]);
+}
+function gGG(ctx,w,h,g,ss){
+  let mx=1; for(const [,s] of ss){ const a=R(s,g.y),b=R(s,g.x); for(let i=0;i<s.n;i++){ const m=Math.hypot(a[i],b[i]); if(m>mx&&m<5) mx=m; } }
+  const {cx,cy,k}=ggFrame(ctx,w,h,Math.ceil(mx*2)/2+0.25), rows=[];
+  for(const [slot,s] of [...ss].reverse()){ const a=R(s,g.y),b=R(s,g.x), step=sub(s.n,12000); ctx.fillStyle=slot==="A"?C.redF+".22)":"rgba(230,230,230,.16)";
+    for(let i=0;i<s.n;i+=step) if(Number.isFinite(a[i])&&Number.isFinite(b[i])) ctx.fillRect(cx+b[i]*k-1,cy-a[i]*k-1,2,2);
+    drawEnv(ctx,envelope(b,a),cx,cy,k,slot==="A"?C.red:C.B,2);
+    let br=0,ac=0,lt=0; for(let i=0;i<s.n;i++){ br=Math.min(br,a[i]); ac=Math.max(ac,a[i]); lt=Math.max(lt,Math.abs(b[i])); }
+    rows.unshift([slot,`Brake ${(-br).toFixed(2)}   Accel ${ac.toFixed(2)}   Lateral ${lt.toFixed(2)}`]); }
+  rows.forEach(([slot,t],i)=>txt(ctx,`${slot}   ${t}`,4,10+i*16,slot==="A"?C.red:C.B,"left","middle",12,600));
+}
+const CMAP=["#26282b","#3b3410","#6b5600","#a68500","#ffd21f","#ffe46b","#fff3b8","#ffffff"];
+function cmap(f){ f=Math.max(0,Math.min(1,f))*(CMAP.length-1); const i=Math.min(CMAP.length-2,Math.floor(f)),u=f-i,a=CMAP[i],b=CMAP[i+1],p=(s,o)=>parseInt(s.substr(o,2),16),m=o=>Math.round(p(a,o)+(p(b,o)-p(a,o))*u); return `rgb(${m(1)},${m(3)},${m(5)})`; }
+function gMap(ctx,w,h,g,ss){
+  const A=ss[0][1], x=R(A,"x"), y=R(A,"y"), c=R(A,g.c); let xl=Infinity,xh=-Infinity,yl=Infinity,yh=-Infinity;
+  for(let i=0;i<A.n;i++){ if(!Number.isFinite(x[i])||!Number.isFinite(y[i])) continue; xl=Math.min(xl,x[i]); xh=Math.max(xh,x[i]); yl=Math.min(yl,y[i]); yh=Math.max(yh,y[i]); }
+  const pad=14, sc=Math.min((w-2*pad)/(xh-xl||1),(h-2*pad-16)/(yh-yl||1)), ox=(w-(xh-xl)*sc)/2, oy=(h+16-(yh-yl)*sc)/2, X=v=>ox+(v-xl)*sc, Y=v=>h-oy-(v-yl)*sc;
+  ctx.lineJoin="round"; ctx.strokeStyle="#2b2b2b"; ctx.lineWidth=8; ctx.beginPath(); let s0=false; for(let i=0;i<A.n;i+=2){ if(!Number.isFinite(x[i])) continue; s0?ctx.lineTo(X(x[i]),Y(y[i])):ctx.moveTo(X(x[i]),Y(y[i])); s0=true; } ctx.stroke();
+  let lo=Infinity,hi=-Infinity; if(c) for(const v of c){ if(v<lo) lo=v; if(v>hi) hi=v; }
+  ctx.lineWidth=3; for(let i=1;i<A.n;i++){ if(!Number.isFinite(x[i])||!Number.isFinite(x[i-1])) continue; ctx.strokeStyle=c?cmap((c[i]-lo)/(hi-lo||1)):C.red; ctx.beginPath(); ctx.moveTo(X(x[i-1]),Y(y[i-1])); ctx.lineTo(X(x[i]),Y(y[i])); ctx.stroke(); }
+  if(c){ const gw=110; for(let i=0;i<gw;i++){ ctx.fillStyle=cmap(i/gw); ctx.fillRect(w-gw-8+i,6,1,6); } txt(ctx,lo.toFixed(1),w-gw-12,9,C.dim,"right"); txt(ctx,hi.toFixed(1),w-4,20,C.dim,"right"); txt(ctx,label(g.c),4,9,C.tx2); }
+}
+function gBin(ctx,w,h,g,ss){
+  const xs=ss.map(([,s])=>R(s,g.x)), ys=ss.map(([,s])=>R(s,g.y)); let [lo,hi]=range(xs); lo=Math.max(lo,5); const nb=14, bw=(hi-lo)/nb;
+  const res=ss.map(([slot,s],j)=>{ const a=xs[j],b=ys[j], mx=new Float64Array(nb).fill(NaN), mn=new Float64Array(nb).fill(NaN);
+    for(let i=0;i<s.n;i++){ const x=a[i],y=b[i]; if(!Number.isFinite(x)||!Number.isFinite(y)||x<lo) continue; const k=Math.min(nb-1,Math.floor((x-lo)/bw)), v=g.mode==="abs"?Math.abs(y):y;
+      if(!(v<=mx[k])) mx[k]=v; if(!(v>=mn[k])) mn[k]=v; } return [slot,mx,mn,a,b,s]; });
+  const fin=a=>[...a].filter(Number.isFinite), ylo=g.mode==="abs"?0:Math.min(0,...res.flatMap(r=>fin(r[2])))*1.1, yhi=Math.max(...res.flatMap(r=>fin(r[1])))*1.1;
+  const ax=axes(ctx,w,h,[lo,hi],[ylo,yhi||1],label(g.x),label(g.y));
+  for(const [slot,,,a,b,s] of res){ const step=sub(s.n,6000); ctx.fillStyle=slot==="A"?C.redF+".14)":"rgba(230,230,230,.10)";
+    for(let i=0;i<s.n;i+=step){ const x=a[i]; let y=b[i]; if(!Number.isFinite(x)||!Number.isFinite(y)||x<lo) continue; if(g.mode==="abs") y=Math.abs(y); ctx.fillRect(ax.X(x)-1,ax.Y(y)-1,2,2); } }
+  for(const [slot,mx,mn] of res){ const col=slot==="A"?C.red:C.B;
+    for(const arr of g.mode==="abs"?[mx]:[mx,mn]){ ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath(); let s=false;
+      for(let k=0;k<nb;k++){ if(!Number.isFinite(arr[k])) continue; const x=ax.X(lo+(k+.5)*bw), y=ax.Y(arr[k]); s?ctx.lineTo(x,y):ctx.moveTo(x,y); s=true; } ctx.stroke();
+      ctx.fillStyle=col; for(let k=0;k<nb;k++){ if(!Number.isFinite(arr[k])) continue; ctx.beginPath(); ctx.arc(ax.X(lo+(k+.5)*bw),ax.Y(arr[k]),3,0,Math.PI*2); ctx.fill(); } } }
+  if(res.length>1) legend(ctx,w,[["A",C.red],["B",C.B]]);
+}
+function gBars(ctx,w,h,g,ss){
+  const res=ss.map(([slot,s])=>[slot,g.from(s)]).filter(r=>r[1]); if(!res.length) return; const labs=res[0][1][0], n=res.length;
+  const ym=Math.max(...res.flatMap(r=>r[1][1])), ax=axes(ctx,w,h,[-0.5,labs.length-0.5],[0,ym*1.2||1],"","%");
+  ctx.fillStyle="#1c1c1c"; ctx.fillRect(ax.pl,h-ax.pb+2,w,20); labs.forEach((l,i)=>txt(ctx,l,ax.X(i),h-ax.pb+12,C.tx2,"center"));
+  res.forEach(([slot,[,v]],j)=>{ const cw=ax.X(1)-ax.X(0), bw=cw*0.6/n; v.forEach((p,i)=>{ const x0=ax.X(i)-cw*0.3+j*bw, y=ax.Y(p);
+    ctx.fillStyle=slot==="A"?C.red:"rgba(230,230,230,.75)"; ctx.fillRect(x0,y,bw-3,ax.Y(0)-y); txt(ctx,p.toFixed(1)+"%",x0+(bw-3)/2,y-8,slot==="A"?C.red:C.B,"center"); }); });
+}
+function expand(g){ const m=$("modal"); m.innerHTML=`<div class="tile"><div class="th"><span class="t">${g.title}</span><span class="s">${g.sub||""}</span><button class="x" title="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="cv"><canvas></canvas></div></div>`;
+  m.style.display="block"; m.querySelector(".x").onclick=()=>m.style.display="none"; m.onclick=e=>{ if(e.target===m) m.style.display="none"; };
+  requestAnimationFrame(()=>drawGraph(g,m.querySelector("canvas"),true)); }
+addEventListener("keydown",e=>{ if(e.key==="Escape") $("modal").style.display="none"; });
+
+/* ---------------- Explorer ---------------- */
+function allCh(){ const s=new Set(); for(const [,x] of sessions()) for(const k of x.ch.keys()) s.add(k); return [...s]; }
+function fillSel(sel,list,pref){ const cur=sel.value; sel.innerHTML=""; for(const n of list) sel.add(new Option(n)); sel.value=list.includes(cur)?cur:(pref&&list.includes(pref)?pref:(list[0]||"")); }
+function rebuildPickers(){
+  const chs=allCh(), S=ana.A||ana.B||liveCache, pref=["speed","long","lat","rpm","gear","steer"].map(k=>S&&chName(S,k)).filter(k=>k&&chs.includes(k));
+  if(!ana.lanes.length||!ana.lanes.every(c=>chs.includes(c))) ana.lanes=(pref.length?pref:chs).slice(0,6);
+  const box=$("chList"); box.innerHTML=chs.length?"":'<div style="color:var(--dim);padding:8px">No session</div>';
+  for(const c of chs){ const l=document.createElement("label"), cb=document.createElement("input"); cb.type="checkbox"; cb.checked=ana.lanes.includes(c);
+    cb.onchange=()=>{ if(cb.checked){ if(ana.lanes.length>=8){ cb.checked=false; return; } ana.lanes.push(c); } else ana.lanes=ana.lanes.filter(x=>x!==c); drawTime(); };
+    l.append(cb,document.createTextNode(c)); box.appendChild(l); }
+  fillSel($("xyX"),chs,S&&chName(S,"lat")); fillSel($("xyY"),chs,S&&chName(S,"steer"));
+}
+$("xyX").onchange=$("xyY").onchange=()=>drawXY();
+const TP={pl:56,pr:12,pb:24};
+function drawTime(){
+  const [ctx,w,h]=fit($("cTime")), ss=sessions(); $("eTime").style.display=ss.length?"none":"grid"; if(!ss.length) return;
+  if(!ana.view){ let a=Infinity,b=-Infinity; for(const [,s] of ss){ a=Math.min(a,s.t[0]); b=Math.max(b,s.t[s.n-1]); } ana.view=[a,b]; }
+  const [t0,t1]=ana.view, lanes=ana.lanes, nL=Math.max(1,lanes.length), pw=w-TP.pl-TP.pr, lh=(h-TP.pb)/nL, X=t=>TP.pl+(t-t0)/(t1-t0)*pw;
+  lanes.forEach((ch,li)=>{ const y0=li*lh, y1=y0+lh;
+    let lo=Infinity,hi=-Infinity; for(const [,s] of ss){ const v=s.ch.get(ch); if(!v) continue; const i0=Math.max(0,lb(s.t,t0)-1), i1=Math.min(s.n,lb(s.t,t1)+1); for(let i=i0;i<i1;i++){ if(v[i]<lo) lo=v[i]; if(v[i]>hi) hi=v[i]; } }
+    if(!Number.isFinite(lo)){ lo=0; hi=1; } if(hi-lo<1e-9){ lo-=1; hi+=1; } const m=(hi-lo)*.08; lo-=m; hi+=m;
+    const Y=v=>y1-4-(v-lo)/(hi-lo)*(lh-22);
+    ctx.strokeStyle=C.grid; ctx.beginPath(); ctx.moveTo(0,y1+.5); ctx.lineTo(w,y1+.5); ctx.stroke();
+    const tk=ticks(lo,hi,lh>100?3:2); for(const v of tk.list){ const y=Y(v); if(y<y0+16) continue; txt(ctx,v.toFixed(tk.dec),TP.pl-8,y,C.dim,"right"); }
+    ctx.save(); ctx.beginPath(); ctx.rect(TP.pl,y0,pw,lh); ctx.clip();
+    const base=lo<0&&hi>0?Y(0):y1;
+    for(const [slot,s] of [...ss].reverse()){ const v=s.ch.get(ch); if(!v) continue; const [xs,ys]=decimate(s.t,v,t0,t1,X); area(ctx,xs,ys,X,Y,base,y1,slot==="A"?C.red:C.B,slot==="A"); }
+    ctx.restore();
+    let lab=ch; if(ana.cursor!=null){ const parts=ss.map(([slot,s])=>{ const v=s.ch.get(ch); if(!v) return null; const i=Math.min(s.n-1,lb(s.t,ana.cursor)); return `${slot} ${Math.abs(v[i])>=100?v[i].toFixed(0):v[i].toFixed(2)}`; }).filter(Boolean); lab+="    "+parts.join("    "); }
+    txt(ctx,lab,TP.pl+8,y0+10,C.tx,"left","middle",12,600); });
+  const tk=ticks(t0,t1,8); for(const v of tk.list){ const x=X(v); if(x<TP.pl||x>w-TP.pr) continue; txt(ctx,v.toFixed(tk.dec)+" s",x,h-TP.pb/2,C.dim,"center"); }
+  if(ana.cursor!=null&&ana.cursor>=t0&&ana.cursor<=t1){ const x=Math.round(X(ana.cursor))+.5; ctx.strokeStyle="rgba(255,255,255,.6)"; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h-TP.pb); ctx.stroke(); }
+}
+(()=>{ const c=$("cTime"), tAt=e=>{ const r=c.getBoundingClientRect(), [a,b]=ana.view||[0,1]; return a+(e.clientX-r.left-TP.pl)/(r.width-TP.pl-TP.pr)*(b-a); };
+  c.addEventListener("mousemove",e=>{ if(!ana.view) return; if(ana.drag){ const r=c.getBoundingClientRect(), d=(e.clientX-ana.drag.x)/(r.width-TP.pl-TP.pr)*(ana.drag.v[1]-ana.drag.v[0]); ana.view=[ana.drag.v[0]-d,ana.drag.v[1]-d]; } ana.cursor=tAt(e); drawTime(); });
+  c.addEventListener("mousedown",e=>{ if(ana.view) ana.drag={x:e.clientX,v:[...ana.view]}; }); addEventListener("mouseup",()=>ana.drag=null);
+  c.addEventListener("dblclick",()=>{ ana.view=null; drawTime(); });
+  c.addEventListener("wheel",e=>{ if(!ana.view) return; e.preventDefault(); const t=tAt(e),[a,b]=ana.view,f=e.deltaY>0?1.25:0.8; if((b-a)*f<0.2) return; ana.view=[t-(t-a)*f,t+(b-t)*f]; drawTime(); },{passive:false}); })();
+function drawXY(){ const ss=sessions(), x=$("xyX").value, y=$("xyY").value; const [ctx,w,h]=fit($("cXY")); if(!ss.length||!x||!y) return;
+  const ok=ss.filter(([,s])=>s.ch.has(x)&&s.ch.has(y)); if(ok.length) gScatter(ctx,w,h,{x,y},ok,false); }
+
+/* ---------------- Statistics ---------------- */
+const SC=["n","min","p5","p50","mean","p95","max","std"], SCN={n:"Samples",min:"Min",p5:"5th pct",p50:"Median",mean:"Mean",p95:"95th pct",max:"Max",std:"Std dev"};
+function renderStats(){
+  for(const slot of ["A","B"]){ const s=ana[slot]||(slot==="A"?liveCache:null), el=$("st"+slot); if(!s){ el.innerHTML='<div style="color:var(--dim);padding:24px 12px">No session</div>'; continue; }
+    const rows=[]; for(const [k,v] of s.ch){ const a=[...v].filter(Number.isFinite); if(!a.length) continue; const so=Float64Array.from(a).sort(), n=so.length; let sm=0,sq=0; for(const x of so){ sm+=x; sq+=x*x; } const mean=sm/n;
+      rows.push({ch:k,n,min:so[0],max:so[n-1],mean,std:Math.sqrt(Math.max(0,sq/n-mean*mean)),p5:pct(so,.05),p50:pct(so,.5),p95:pct(so,.95)}); }
+    s._st=rows; const f=v=>Math.abs(v)>=1000?v.toFixed(0):Math.abs(v)>=100?v.toFixed(1):v.toFixed(3);
+    el.innerHTML=`<table class="st"><tr><th>Channel</th>${SC.map(c=>`<th>${SCN[c]}</th>`).join("")}</tr>`+rows.map(r=>`<tr><td>${r.ch}</td>${SC.map(c=>`<td>${c==="n"?r.n:f(r[c])}</td>`).join("")}</tr>`).join("")+"</table>"; }
+}
+for(const b of document.querySelectorAll("[data-exp]")) b.onclick=()=>{ const s=ana[b.dataset.exp]; if(!s||!s._st) return;
+  download(`${s.name}_stats.csv`,["channel,"+SC.join(",")].concat(s._st.map(r=>[r.ch,...SC.map(c=>r[c])].join(","))).join("\n")+"\n"); };
+
+/* ---------------- Navigation ---------------- */
+let page="overview";
+function show(p){ page=p; if(!ana.A&&!ana.B&&p!=="overview"&&st.sess.t.length>=10){ liveCache=liveSession(); rebuildPickers(); updateCounts(); if(p==="stats") renderStats(); } for(const b of document.querySelectorAll("#nav button")) b.classList.toggle("on",b.dataset.p===p);
+  for(const el of document.querySelectorAll(".page")) el.classList.toggle("on",el.id==="p-"+p);
+  $("title").textContent=PAGES[p][0]; $("subtitle").textContent=PAGES[p][1]; $("content").scrollTop=0; redrawPage(); }
+function redrawPage(){ requestAnimationFrame(()=>{
+  if(["vd","pt","ty","sa","sd"].includes(page)) for(const g of G.filter(g=>g.p===page)) drawGraph(g,g.c,false);
+  else if(page==="ex"){ drawTime(); drawXY(); } }); }
+for(const b of document.querySelectorAll("#nav button")) b.onclick=()=>show(b.dataset.p);
+let rt; addEventListener("resize",()=>{ clearTimeout(rt); rt=setTimeout(redrawPage,120); });
+renderStats(); updateCounts(); rebuildPickers();
+// URL options: ?a=log.csv&b=other.csv&page=vd&demo=1
+(async()=>{ const q=new URLSearchParams(location.search);
+  for(const slot of ["A","B"]){ const u=q.get(slot.toLowerCase()); if(!u) continue;
+    try{ const r=await fetch(u); setSession(slot,parseCSV(await r.text(),q.get(slot.toLowerCase()+"name")||decodeURIComponent(u.split("/").pop().replace(/\.csv$/i,"")))); }catch(e){ toast("Could not open "+u); } }
+  if(q.get("demo")) startDemo();
+  if(q.get("page")&&PAGES[q.get("page")]) show(q.get("page")); })();
+function frame(){ if(page==="overview"){ drawLiveGG(); drawMetrics(); } updateLive(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
